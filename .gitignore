@@ -1,0 +1,6 @@
+__pycache__/stack_dataset.cpython-312.pyc
+examples/*
+vggt/dependency/__pycache__/*
+vggt/dependency/track_modules/__pycache__/*
+vggt/heads/__pycache__/*
+vggt/*/__pycache__/*
