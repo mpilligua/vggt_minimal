@@ -49,7 +49,7 @@ class StackDataset(Dataset):
 
         for folder in sorted(os.listdir(self.data_dir)):
             folder_path = os.path.join(self.data_dir, folder)
-            if not os.path.isdir(folder_path) or "colmap" in folder_path: #or not folder.endswith("_0"): # TODO option use only 0s
+            if not os.path.isdir(folder_path): #or not folder.endswith("_0"): # TODO option use only 0s
                 continue  # Skip if not a valid data folder
 
             # Find the first image in alphabetical order
@@ -122,7 +122,10 @@ class StackDataset(Dataset):
         volume_ratio_tensor = torch.tensor(volume_ratio, dtype=torch.float32)
         object_volume_tensor = torch.tensor(object_volume, dtype=torch.float32)
 
+        folder_path = os.path.dirname(self.image_paths[idx])
+        image_name = os.path.basename(self.image_paths[idx])
+
         if self.experiment_config['DINO_USE_VOL_AS_ADDITIONAL_INPUT']:
             return images, volume_ratio_tensor, object_volume_tensor
         else:
-            return images, volume_ratio_tensor
+            return images, volume_ratio_tensor, folder_path, image_name
