@@ -317,11 +317,18 @@ if __name__ == "__main__":
     # Configuration
     # ==========================================
     
+    # if there is an argument passed, use it as data path
+    import sys
+    if len(sys.argv) > 1:
+        data_path = sys.argv[1]
+    else:
+        data_path = "/Users/maria/ML/data/scenes_part1/"  # Path to your dataset
+
     cfg = {
         "batch_size": 1,
         "epochs": 5,
         "lr": 1e-4,
-        "data_path": "/Users/maria/ML/data/scenes_part1/",  # Path to your dataset
+        "data_path": data_path,  # Path to your dataset
     }
 
     train_dataset = StackDataset(
