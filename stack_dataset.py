@@ -106,10 +106,10 @@ class StackDataset(Dataset):
 
         # Preallocate tensor for images
         # Assuming all images are of the same size after transformation
-        images = torch.zeros((3, 3, 512, 512), dtype=torch.float32)
+        images = torch.zeros((len(image_paths), 3, 512, 512), dtype=torch.float32)
 
         # Load and transform all images at once
-        for i, image_path in enumerate(image_paths[:2]):
+        for i, image_path in enumerate(image_paths):
             image = Image.open(image_path).convert("RGB")
             images[i] = self.transform(image)  # Apply the transformation directly
 
