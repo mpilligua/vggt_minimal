@@ -156,160 +156,6 @@ class VGGTWrapperCNN(nn.Module):
         return map_  # Return aggregated feature map
 
 
-def extract_embeddings(
-    model: VGGT,
-    images: torch.Tensor,
-    device: str,
-    dtype: torch.dtype,
-    extract_all_layers: bool = True,
-) -> Dict[str, torch.Tensor]:
-    """
-    Extract embeddings and predictions from VGGT model.
-    
-    Args:
-        model: Loaded VGGT model.
-        images: Preprocessed images tensor [S, 3, H, W] or [B, S, 3, H, W].
-        device: Device to run inference on.
-        dtype: Data type for inference.
-        extract_all_layers: If True, return aggregated tokens from all transformer layers.
-        
-    Returns:
-        Dictionary containing:
-        - aggregated_tokens_list: List of token tensors from all transformer layers
-        - patch_start_idx: Index where patch tokens start (after camera/register tokens)
-        - pose_enc: Camera pose encoding [B, S, 9]
-        - extrinsic: Extrinsic camera matrices [B, S, 3, 4]
-        - intrinsic: Intrinsic camera matrices [B, S, 3, 3]
-        - depth: Depth maps [B, S, 1, H, W]
-        - depth_conf: Depth confidence [B, S, 1, H, W]
-        - world_points: 3D point maps [B, S, 3, H, W]
-        - world_points_conf: Point map confidence [B, S, 1, H, W]
-        - images: Original input images
-    """
-    # Add batch dimension if needed
-    if len(images.shape) == 4:
-        images = images.unsqueeze(0)
-    
-    images = images.to(device)
-    B, S, C, H, W = images.shape
-    
-    print(f"Processing {S} frames with shape {H}x{W}")
-    
-    results = {}
-    
-    with torch.no_grad():
-        with torch.cuda.amp.autocast(dtype=dtype) if device == "cuda" else torch.inference_mode():
-            # Step 1: Get aggregated tokens from the transformer backbone
-            # This is the core feature extraction step
-            aggregated_tokens_list, patch_start_idx = model.aggregator(images)
-            
-            results["aggregated_tokens_list"] = aggregated_tokens_list
-            results["patch_start_idx"] = patch_start_idx
-            
-            # aggregated_tokens_list contains tokens from all 24 transformer layers
-            # Each tensor has shape [B, S, num_tokens, embed_dim]
-            # where num_tokens = 1 (camera) + 4 (register) + H/14 * W/14 (patches)
-            # embed_dim = 2048 (concatenated from two streams)
-            
-            print(f"Number of transformer layers: {len(aggregated_tokens_list)}")
-            print(f"Token tensor shape per layer: {aggregated_tokens_list[0].shape}")
-            # print(f"Patch tokens start at index: {patch_start_idx}")
-            
-            # # Step 2: Extract camera pose encoding
-            # if model.camera_head is not None:
-            #     pose_enc_list = model.camera_head(aggregated_tokens_list)
-            #     pose_enc = pose_enc_list[-1]  # Use last iteration
-            #     results["pose_enc"] = pose_enc
-            #     results["pose_enc_list"] = pose_enc_list
-                
-            #     # Convert pose encoding to extrinsic/intrinsic matrices
-            #     extrinsic, intrinsic = pose_encoding_to_extri_intri(pose_enc, images.shape[-2:])
-            #     results["extrinsic"] = extrinsic  # [B, S, 3, 4] camera-from-world
-            #     results["intrinsic"] = intrinsic  # [B, S, 3, 3]
-                
-            #     print(f"Camera pose encoding shape: {pose_enc.shape}")
-            #     print(f"Extrinsic matrix shape: {extrinsic.shape}")
-            #     print(f"Intrinsic matrix shape: {intrinsic.shape}")
-            
-            # Step 3: Extract depth maps
-            # if model.depth_head is not None:
-            #     depth, depth_conf = model.depth_head(
-            #         aggregated_tokens_list, images=images, patch_start_idx=patch_start_idx
-            #     )
-            #     results["depth"] = depth
-            #     results["depth_conf"] = depth_conf
-            #     print(f"Depth map shape: {depth.shape}")
-            
-            # # Step 4: Extract 3D point maps
-            # if model.point_head is not None:
-            #     world_points, world_points_conf = model.point_head(
-            #         aggregated_tokens_list, images=images, patch_start_idx=patch_start_idx
-            #     )
-            #     results["world_points"] = world_points
-            #     results["world_points_conf"] = world_points_conf
-            #     print(f"World points shape: {world_points.shape}")
-            
-            # Store original images
-            results["images"] = images
-            
-    return results
-
-
-def get_patch_features(
-    aggregated_tokens_list: List[torch.Tensor],
-    patch_start_idx: int,
-    layer_indices: List[int] = None,
-) -> torch.Tensor:
-    """
-    Extract patch features from specific transformer layers.
-    Useful for building custom heads on top of VGGT features.
-    
-    Args:
-        aggregated_tokens_list: List of token tensors from transformer layers.
-        patch_start_idx: Index where patch tokens start.
-        layer_indices: Which layers to extract features from. 
-                      Default uses DPT layers [4, 11, 17, 23].
-    
-    Returns:
-        Tensor of patch features [B, S, num_layers, num_patches, embed_dim]
-    """
-    if layer_indices is None:
-        # Default: use same layers as DPT head
-        layer_indices = [4, 11, 17, 23]
-    
-    features = []
-    for idx in layer_indices:
-        # Extract only patch tokens (skip camera and register tokens)
-        patch_tokens = aggregated_tokens_list[idx][:, :, patch_start_idx:]
-        features.append(patch_tokens)
-    
-    # Stack along new dimension
-    features = torch.stack(features, dim=2)  # [B, S, num_layers, num_patches, embed_dim]
-    
-    return features
-
-
-def get_camera_tokens(
-    aggregated_tokens_list: List[torch.Tensor],
-    layer_idx: int = -1,
-) -> torch.Tensor:
-    """
-    Extract camera tokens from a specific layer.
-    Camera token is the first token in each frame.
-    
-    Args:
-        aggregated_tokens_list: List of token tensors from transformer layers.
-        layer_idx: Which layer to extract from. Default: last layer.
-        
-    Returns:
-        Camera tokens [B, S, embed_dim]
-    """
-    tokens = aggregated_tokens_list[layer_idx]
-    camera_tokens = tokens[:, :, 0]  # First token is camera token
-    return camera_tokens
-
- 
-
 
 if __name__ == "__main__":
     
@@ -325,7 +171,7 @@ if __name__ == "__main__":
         data_path = "/teamspace/studios/this_studio/stackcounting_dataset/train"  # Path to your dataset
 
     cfg = {
-        "batch_size": 1,
+        "batch_size": 4,
         "data_path": data_path,  # Path to your dataset
     }
 
@@ -344,7 +190,7 @@ if __name__ == "__main__":
         }
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=False, num_workers=8)
 
     # Load model
     model, device, dtype = load_vggt_model()
@@ -357,17 +203,23 @@ if __name__ == "__main__":
     
     out_dir = Path(os.path.dirname(cfg["data_path"])) / "vggt_embeddings" / os.path.basename(cfg["data_path"])
     out_dir.mkdir(parents=True, exist_ok=True)
+    with torch.no_grad():
+        # Save embeddings in batches
+        embeddings_batch = []
+        for i, batch in enumerate(tqdm(train_loader)):
+            folder = batch["folder"]
+            image_name = batch["image_name"]
+            images = batch["images"].to(device)
 
-    for i, batch in enumerate(tqdm(train_loader)):
-        folder = batch[2]
-        image_name = batch[3]
-        images = batch[0].to(device)
+            embeddings = model.return_embeddings(images)
+            embeddings_batch.append(embeddings.cpu())
 
-        embeddings = model.return_embeddings(images)
-        if cfg["batch_size"] > 1:
-            for b in range(embeddings.shape[0]):
-                os.makedirs(out_dir / folder[b], exist_ok=True)
-                torch.save(embeddings[b].cpu(), out_dir / f"{folder[b]}/{image_name[b]}.pt")
-        else:
-            os.makedirs(out_dir / folder[0], exist_ok=True)
-            torch.save(embeddings.cpu(), out_dir / f"{folder[0]}/{image_name[0]}.pt")
+            if len(embeddings_batch) >= 16:  # Save when batch is full
+                print("saving batch")
+                for b in range(len(embeddings_batch)):
+                    os.makedirs(out_dir / folder[b], exist_ok=True)
+                    torch.save(embeddings_batch[b], out_dir / f"{folder[b]}/{image_name[b]}.pt")
+                embeddings_batch = []  # Reset after saving
+
+            if (i+1) % 15 == 0: 
+                print("preparing batch")
