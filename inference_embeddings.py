@@ -322,12 +322,10 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         data_path = sys.argv[1]
     else:
-        data_path = "/Users/maria/ML/data/scenes_part1/"  # Path to your dataset
+        data_path = "/teamspace/studios/this_studio/stackcounting_dataset/train"  # Path to your dataset
 
     cfg = {
         "batch_size": 1,
-        "epochs": 5,
-        "lr": 1e-4,
         "data_path": data_path,  # Path to your dataset
     }
 
@@ -357,14 +355,13 @@ if __name__ == "__main__":
     # Inference and save embeddings
     # ==========================================
     
-    out_dir = Path(cfg["data_path"]) / "vggt_embeddings/"
+    out_dir = Path(os.path.dirname(cfg["data_path"])) / "vggt_embeddings" / os.path.basename(cfg["data_path"])
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for i, batch in enumerate(tqdm(train_loader)):
         folder = batch[2]
         image_name = batch[3]
         images = batch[0].to(device)
-
 
         embeddings = model.return_embeddings(images)
         if cfg["batch_size"] > 1:

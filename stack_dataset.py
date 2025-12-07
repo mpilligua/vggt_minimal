@@ -122,7 +122,7 @@ class StackDataset(Dataset):
         volume_ratio_tensor = torch.tensor(volume_ratio, dtype=torch.float32)
         object_volume_tensor = torch.tensor(object_volume, dtype=torch.float32)
 
-        folder_path = os.path.dirname(self.image_paths[idx])
+        folder_path = os.path.basename(os.path.dirname(self.image_paths[idx]))
         image_name = os.path.basename(self.image_paths[idx])
 
         if self.experiment_config['DINO_USE_VOL_AS_ADDITIONAL_INPUT']:
@@ -237,7 +237,7 @@ class StackDatasetEmbs(Dataset):
         object_volume_tensor = torch.tensor(object_volume, dtype=torch.float32)
         embedding = torch.tensor(embedding, dtype=torch.float32)
 
-        folder_path = os.path.dirname(self.image_paths[idx])
+        folder_path = os.path.basename(os.path.dirname(self.image_paths[idx]))
         image_name = os.path.basename(self.image_paths[idx])
 
 
