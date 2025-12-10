@@ -120,16 +120,16 @@ if __name__ == "__main__":
         "batch_size": 100,
         "epochs": 500,
         "lr": 1e-4,
-        "emb_path": "/teamspace/studios/this_studio/stackcounting_dataset/vggt_embeddings/train",
-        "data_path": "/teamspace/studios/this_studio/stackcounting_dataset/train",
+        "emb_path": "/teamspace/studios/this_studio/stackcounting_dataset/vggt_embeddings/",
+        "data_path": "/teamspace/studios/this_studio/stackcounting_dataset/",
         "patience": 30,         # <- early stopping patience
         "monitor": "MAE"        # <- metric to track
     }
 
     # Load dataset
-    dataset = StackDatasetEmbs(
-        data_dir=cfg["data_path"],
-        emb_dir=cfg["emb_path"],
+    train_dataset = StackDatasetEmbs(
+        data_dir=cfg["data_path"] + "train",
+        emb_dir=cfg["emb_path"] + "train",
         use_cache=False,
         experiment_config={
             "INPUT_TYPE": "GT_DEPTH",
@@ -138,14 +138,15 @@ if __name__ == "__main__":
         }
     )
 
-    total_len = len(dataset)
-    val_len = min(100, int(total_len * 0.05))
-    train_len = total_len - val_len
-
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset,
-        [train_len, val_len],
-        generator=torch.Generator().manual_seed(42)
+    val_dataset = StackDatasetEmbs(
+        data_dir=cfg["data_path"] + "val",
+        emb_dir=cfg["emb_path"] + "val",
+        use_cache=False,
+        experiment_config={
+            "INPUT_TYPE": "GT_DEPTH",
+            "PREDICT_TYPE": "COUNT_DIRECTLY",
+            "DINO_USE_VOL_AS_ADDITIONAL_INPUT": False,
+        }
     )
 
     train_loader = DataLoader(train_dataset, batch_size=cfg["batch_size"], shuffle=True)
@@ -206,14 +207,21 @@ if __name__ == "__main__":
                 gt = batch["volume_ratio"].to(device)
 
                 pred = model(emb)
-                loss = loss_fn(pred, gt)
+                pred_clamped = torch.clamp(pred, min=1e-6)  
+                gt_clamped = torch.clamp(gt, min=1e-6)
+
+                # compute log
+                loss_raw = loss_fn(torch.log(pred_clamped), torch.log(gt_clamped))
+
+                # zero out small losses
+                loss = torch.where(loss_raw < 0.1, torch.zeros_like(loss_raw), loss_raw)
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
                 pbar.set_postfix({"loss": float(loss.detach())})
-                wandb.log({"train_loss": float(loss.detach())})
+                wandb.log({"train_loss": float(loss.detach()), "train_loss_raw": float(loss_raw.detach())})
 
                 # ---- VALIDATION ----
                 if step % 10 == 0 and step > 0:
