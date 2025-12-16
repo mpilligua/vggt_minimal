@@ -165,7 +165,7 @@ class StackDatasetEmbs(Dataset):
 
 
         if self.test: 
-            with open(os.path.join("/Users/maria/ML/data/test/gt_counts.json"), "r") as f:
+            with open(os.path.join("/teamspace/studios/this_studio/stackcounting_dataset/test/gt_counts.json"), "r") as f:
                 self.counts = json.load(f)
 
         # Load cached dataset paths if available
@@ -281,7 +281,7 @@ class StackDatasetEmbs(Dataset):
             "embedding": embedding,
             "volume_ratio": volume_ratio_tensor,
             # "object_volume": object_volume_tensor,
-            # "folder_path": folder_path,
+            "folder": folder,
             # "image_name": image_name
         }
 
@@ -311,7 +311,7 @@ class StackDataset2(Dataset):
 
 
         if self.test: 
-            with open(os.path.join("/Users/maria/ML/data/test/gt_counts.json"), "r") as f:
+            with open(os.path.join("/teamspace/studios/this_studio/stackcounting_dataset/test/gt_counts.json"), "r") as f:
                 self.counts = json.load(f)
 
         # Load cached dataset paths if available
