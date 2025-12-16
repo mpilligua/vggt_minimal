@@ -425,22 +425,22 @@ def flatten_metrics(prefix, metrics_dict):
 if __name__ == "__main__":
 
     cfg = {
-        "batch_size": 2,
+        "batch_size": 100,
         "epochs": 500,
         "lr": 1e-4,
-        "data_path": "/Users/maria/ML/data/",
+        "data_path": "/teamspace/studios/this_studio/stackcounting_dataset",
         "patience": 30,         # <- early stopping patience
         "monitor": "MAE",        # <- metric to track
         "num_views": 1,
         "force_top_image": False,
         "use_cache": True,
-        "val_freq": 1,        # <- validate every N steps
+        "val_freq": 10,        # <- validate every N steps
         "k_best_worst": 5,      # <- number of best/worst samples
-        "val_size": 20,
+        "val_size": 100,
     }
 
     # Use CPU instead of MPS due to bugs with scaled_dot_product_attention on MPS
-    device = torch.device("cpu")
+    device = torch.device("cuda")
 
     # Model
     model = VGGTWrapperCNN(device=device)
